@@ -68,12 +68,12 @@ python main.py
 
 | Behavior | Description | Weight |
 |----------|-------------|--------|
-| **Head Turn** | Student turns head away from screen (>25°) | 15 |
-| **Gaze Deviation** | Eye gaze moves away from screen | 10 |
 | **Multiple Faces** | Additional person detected in frame | 25 |
-| **No Face** | Student leaves the camera frame | 30 |
-| **Hand Missing** | Both hands not visible for extended time | 10 |
+| **No Face** | Student leaves the camera frame | 20 |
+| **Hand Missing** | Both hands not visible for extended time | 12 |
+| **Head Turn** | Student turns head away from screen (>25°) | 10 |
 | **Looking Away** | Combined head turn + gaze deviation | 10 |
+| **Gaze Deviation** | Eye gaze moves away from screen | 8 |
 
 ---
 
@@ -120,21 +120,21 @@ Edit `config.py` to customize detection thresholds:
 ```python
 # Head orientation thresholds
 HEAD_TURN_THRESHOLD = 25      # Degrees
-HEAD_TURN_DURATION = 1.5      # Seconds
+HEAD_TURN_DURATION = 1.0      # Seconds
 
 # Face detection
-NO_FACE_DURATION = 2.0        # Seconds
+NO_FACE_DURATION = 1.5        # Seconds
 
 # Hand detection
-HAND_MISSING_DURATION = 3.0   # Seconds
+HAND_MISSING_DURATION = 2.0   # Seconds
 
 # Risk scoring weights
 RISK_WEIGHTS = {
-    'head_turn': 15,
-    'gaze_deviation': 10,
     'multiple_faces': 25,
-    'no_face': 30,
-    'hand_missing': 10,
+    'no_face': 20,
+    'hand_missing': 12,
+    'head_turn': 10,
+    'gaze_deviation': 8,
     'looking_away': 10
 }
 ```
