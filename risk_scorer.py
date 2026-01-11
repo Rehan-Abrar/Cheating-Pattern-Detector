@@ -50,8 +50,9 @@ class RiskScorer:
             'no_face': 0,
             'head_turn': 0,
             'gaze_deviation': 0,
-            'hand_missing': 0,
-            'looking_away': 0
+            'looking_away': 0,
+            'unauthorized_face': 0,
+            'authorized_missing': 0
         }
         
         # Last event time by type (for cooldown)
@@ -94,6 +95,15 @@ class RiskScorer:
         if event_type in self.last_event_time:
             time_since_last = current_time - self.last_event_time[event_type]
             if time_since_last < config.EVENT_COOLDOWN:
+                return False
+
+        # Avoid double-counting: `looking_away` is a combined event
+        # that includes head_turn + gaze_deviation. If a `looking_away`
+        # event was recorded recently, skip separate head/gaze events
+        # to prevent inflating the score.
+        if event_type in ('head_turn', 'gaze_deviation'):
+            last_lookaway = self.last_event_time.get('looking_away')
+            if last_lookaway and (current_time - last_lookaway) < config.EVENT_COOLDOWN:
                 return False
         
         # Get risk increment for this event type

@@ -4,9 +4,13 @@ import time
 import sys
 from typing import Optional, Tuple
 import config
+import os
+import json
+from datetime import datetime
 from pose_detector import PoseDetector
 from behavior_analyzer import BehaviorAnalyzer
 from risk_scorer import RiskScorer
+from face_recognizer import FaceRecognizer
 
 
 class Button:
@@ -56,13 +60,15 @@ class ExamMonitor:
     """
     Main application class for the Cheating Pattern Detector.
     Manages the complete exam monitoring workflow:
-    1. Start Screen (with Start button)
-    2. Monitoring Screen (full-screen with Stop button)
-    3. Results Screen (final summary with optional graph)
+    1. Start Screen (with Register Face and Start Exam buttons)
+    2. Registration Screen (face enrollment)
+    3. Monitoring Screen (full-screen with Stop button)
+    4. Results Screen (final summary with optional graph)
     """
     
     # Application states
     STATE_START = 'start'
+    STATE_REGISTER = 'register'
     STATE_MONITORING = 'monitoring'
     STATE_RESULTS = 'results'
     
@@ -74,6 +80,7 @@ class ExamMonitor:
         self.pose_detector: Optional[PoseDetector] = None
         self.behavior_analyzer: Optional[BehaviorAnalyzer] = None
         self.risk_scorer: Optional[RiskScorer] = None
+        self.face_recognizer: Optional[FaceRecognizer] = None
         
         # Video capture
         self.cap: Optional[cv2.VideoCapture] = None
@@ -94,6 +101,14 @@ class ExamMonitor:
         self.fps = 0
         self.frame_count = 0
         self.last_fps_time = time.time()
+        
+        # Face registration state
+        self.registration_frames = []
+        self.registration_message = ""
+        self.registration_success = False
+        
+        # Initialize face recognizer early to check registration status
+        self.face_recognizer = FaceRecognizer()
     
     def run(self):
         """Main application loop"""
@@ -123,6 +138,8 @@ class ExamMonitor:
         while running:
             if self.state == self.STATE_START:
                 frame = self._render_start_screen()
+            elif self.state == self.STATE_REGISTER:
+                frame = self._render_register_screen()
             elif self.state == self.STATE_MONITORING:
                 frame = self._render_monitoring_screen()
             elif self.state == self.STATE_RESULTS:
@@ -137,19 +154,21 @@ class ExamMonitor:
             if key == 27:  # ESC
                 if self.state == self.STATE_MONITORING:
                     self._stop_monitoring()
+                elif self.state == self.STATE_REGISTER:
+                    self._cancel_registration()
                 elif self.state == self.STATE_RESULTS:
                     running = False
                 else:
                     running = False
             elif key == ord('q'):
-                if self.state != self.STATE_MONITORING:
+                if self.state not in [self.STATE_MONITORING, self.STATE_REGISTER]:
                     running = False
             elif key == ord('r') and self.state == self.STATE_RESULTS:
                 # Restart - go back to start screen
                 self.state = self.STATE_START
                 self.session_results = None
             elif key == ord('s') or key == ord(' '):  # S or SPACE to start
-                if self.state == self.STATE_START:
+                if self.state == self.STATE_START and self.face_recognizer.is_face_registered():
                     self._start_monitoring()
                 elif self.state == self.STATE_MONITORING:
                     self._stop_monitoring()
@@ -168,12 +187,24 @@ class ExamMonitor:
     def _handle_click(self, x: int, y: int):
         """Handle mouse click based on current state"""
         if self.state == self.STATE_START:
-            # Check if Start button was clicked
-            btn = self._get_start_button()
-            print(f"Start button: x={btn.x}, y={btn.y}, w={btn.width}, h={btn.height}")
-            print(f"Contains click: {btn.contains(x, y)}")
-            if btn.contains(x, y):
+            # Check buttons
+            register_btn = self._get_register_button()
+            start_btn = self._get_start_button()
+            reregister_btn = self._get_reregister_button()
+            
+            if register_btn.contains(x, y) and not self.face_recognizer.is_face_registered():
+                self._start_registration()
+            elif start_btn.contains(x, y) and self.face_recognizer.is_face_registered():
                 self._start_monitoring()
+            elif reregister_btn.contains(x, y) and self.face_recognizer.is_face_registered():
+                self.face_recognizer.delete_registration()
+                self._start_registration()
+        
+        elif self.state == self.STATE_REGISTER:
+            # Check cancel button
+            cancel_btn = self._get_cancel_button()
+            if cancel_btn.contains(x, y):
+                self._cancel_registration()
         
         elif self.state == self.STATE_MONITORING:
             # Check if Stop button was clicked
@@ -191,13 +222,37 @@ class ExamMonitor:
                 self._cleanup()
                 sys.exit(0)
     
+    def _get_register_button(self) -> Button:
+        """Get the Register Face button"""
+        btn_width, btn_height = 250, 60
+        btn_x = (self.screen_width - btn_width) // 2
+        btn_y = (self.screen_height - btn_height) // 2 - 20
+        return Button(btn_x, btn_y, btn_width, btn_height, "REGISTER FACE",
+                     config.REGISTER_BUTTON_COLOR, config.REGISTER_BUTTON_HOVER)
+    
+    def _get_reregister_button(self) -> Button:
+        """Get the Re-register Face button"""
+        btn_width, btn_height = 250, 60
+        btn_x = (self.screen_width - btn_width) // 2
+        btn_y = (self.screen_height - btn_height) // 2 - 20
+        return Button(btn_x, btn_y, btn_width, btn_height, "RE-REGISTER FACE",
+                     config.REGISTER_BUTTON_COLOR, config.REGISTER_BUTTON_HOVER)
+    
     def _get_start_button(self) -> Button:
         """Get the Start Exam button"""
         btn_width, btn_height = 250, 60
         btn_x = (self.screen_width - btn_width) // 2
-        btn_y = (self.screen_height - btn_height) // 2 + 50
+        btn_y = (self.screen_height - btn_height) // 2 + 60
         return Button(btn_x, btn_y, btn_width, btn_height, "START EXAM",
                      config.BUTTON_COLOR, config.BUTTON_HOVER_COLOR)
+    
+    def _get_cancel_button(self) -> Button:
+        """Get the Cancel button for registration"""
+        btn_width, btn_height = 150, 45
+        btn_x = self.screen_width - btn_width - 20
+        btn_y = 20
+        return Button(btn_x, btn_y, btn_width, btn_height, "CANCEL",
+                     config.STOP_BUTTON_COLOR, config.STOP_BUTTON_HOVER)
     
     def _get_stop_button(self) -> Button:
         """Get the Stop Exam button"""
@@ -220,6 +275,41 @@ class ExamMonitor:
         exit_btn = Button(start_x + btn_width + spacing, btn_y, btn_width, btn_height, "EXIT",
                          config.STOP_BUTTON_COLOR, config.STOP_BUTTON_HOVER)
         return new_btn, exit_btn
+    
+    def _start_registration(self):
+        """Start the face registration process"""
+        print("\n" + "=" * 60)
+        print("    STARTING FACE REGISTRATION")
+        print("=" * 60)
+        
+        # Reset registration state
+        self.registration_frames = []
+        self.registration_message = "Position your face in the frame"
+        self.registration_success = False
+        
+        # Start webcam
+        self.cap = cv2.VideoCapture(config.CAMERA_INDEX)
+        if not self.cap.isOpened():
+            print("ERROR: Could not open webcam!")
+            self.registration_message = "ERROR: Could not open webcam!"
+            return
+        
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
+        
+        self.state = self.STATE_REGISTER
+    
+    def _cancel_registration(self):
+        """Cancel face registration and return to start screen"""
+        print("Registration cancelled")
+        
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+        
+        self.registration_frames = []
+        self.registration_message = ""
+        self.state = self.STATE_START
     
     def _start_monitoring(self):
         """Start the exam monitoring session"""
@@ -248,6 +338,9 @@ class ExamMonitor:
         # Start risk scoring session
         self.risk_scorer.start_session()
         
+        # Reset face recognizer for new session
+        self.face_recognizer.reset()
+        
         # Reset FPS counter
         self.fps = 0
         self.frame_count = 0
@@ -268,6 +361,47 @@ class ExamMonitor:
         if self.risk_scorer:
             self.risk_scorer.end_session()
             self.session_results = self.risk_scorer.get_session_summary()
+
+            # Persist results to JSON file in `results/` folder
+            try:
+                results_dir = os.path.join(os.getcwd(), 'results')
+                os.makedirs(results_dir, exist_ok=True)
+
+                # Prepare JSON-serializable copy
+                sr = dict(self.session_results)
+                # Convert RiskEvent objects in event_log to dicts if present
+                events = sr.get('event_log', [])
+                serial_events = []
+                for ev in events:
+                    try:
+                        # dataclass -> attributes
+                        serial_events.append({
+                            'timestamp': float(ev.timestamp),
+                            'event_type': str(ev.event_type),
+                            'risk_increment': int(ev.risk_increment),
+                            'total_score_after': int(ev.total_score_after)
+                        })
+                    except Exception:
+                        # already serializable dict?
+                        serial_events.append(ev)
+
+                sr['event_log'] = serial_events
+
+                # Ensure timeline is serializable (list of [time, score])
+                sr['score_timeline'] = [[float(t), int(s)] for t, s in sr.get('score_timeline', [])]
+
+                # Add metadata
+                now = datetime.now()
+                sr['saved_at'] = now.isoformat()
+
+                filename = now.strftime('session_%Y%m%d_%H%M%S.json')
+                path = os.path.join(results_dir, filename)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(sr, f, indent=2)
+
+                print(f"Session results saved to: {path}")
+            except Exception as e:
+                print(f"Failed to save session results: {e}")
         
         # Release webcam
         if self.cap:
@@ -285,7 +419,7 @@ class ExamMonitor:
         self.state = self.STATE_RESULTS
     
     def _render_start_screen(self) -> np.ndarray:
-        """Render the start screen with Start button"""
+        """Render the start screen with Register Face and Start Exam buttons"""
         frame = np.zeros((self.screen_height, self.screen_width, 3), dtype=np.uint8)
         frame[:] = config.COLORS['dark_gray']
         
@@ -302,39 +436,162 @@ class ExamMonitor:
         sub_x = (self.screen_width - sub_size[0]) // 2
         cv2.putText(frame, subtitle, (sub_x, 200), font, 0.8, config.COLORS['cyan'], 2)
         
+        # Face registration status
+        is_registered = self.face_recognizer.is_face_registered()
+        if is_registered:
+            status_text = "Face Registered"
+            status_color = config.COLORS['green']
+        else:
+            status_text = "No Face Registered"
+            status_color = config.COLORS['yellow']
+        
+        status_size = cv2.getTextSize(status_text, font, 0.7, 2)[0]
+        status_x = (self.screen_width - status_size[0]) // 2
+        cv2.putText(frame, status_text, (status_x, 250), font, 0.7, status_color, 2)
+        
         # Instructions
         instructions = [
             "This system will monitor your exam session using webcam.",
-            "Suspicious behaviors will be detected and logged.",
+            "Before starting, you must register your face for verification.",
             "",
             "Detected behaviors:",
             "  - Head turns beyond threshold",
             "  - Gaze deviation (looking away)",
-            "  - Multiple faces detected",
+            "  - Unauthorized person detected",
             "  - No face in frame",
-            "  - Hands not visible",
             "",
-            "Click 'START EXAM' when ready to begin."
         ]
         
-        y_offset = 280
+        if is_registered:
+            instructions.append("Click 'START EXAM' to begin monitoring.")
+        else:
+            instructions.append("Click 'REGISTER FACE' to begin enrollment.")
+        
+        y_offset = 300
         for line in instructions:
             if line:
                 cv2.putText(frame, line, (200, y_offset), font, 0.6, 
                            config.COLORS['light_gray'], 1)
             y_offset += 30
         
-        # Draw Start button
-        btn = self._get_start_button()
-        btn.is_hovered = btn.contains(self.mouse_x, self.mouse_y)
-        btn.draw(frame)
+        # Draw buttons based on registration status
+        if is_registered:
+            # Show Re-register button
+            reregister_btn = self._get_reregister_button()
+            reregister_btn.is_hovered = reregister_btn.contains(self.mouse_x, self.mouse_y)
+            reregister_btn.draw(frame)
+            
+            # Show Start Exam button (enabled)
+            start_btn = self._get_start_button()
+            start_btn.is_hovered = start_btn.contains(self.mouse_x, self.mouse_y)
+            start_btn.draw(frame)
+        else:
+            # Show Register Face button
+            register_btn = self._get_register_button()
+            register_btn.is_hovered = register_btn.contains(self.mouse_x, self.mouse_y)
+            register_btn.draw(frame)
+            
+            # Show Start Exam button (disabled - grayed out)
+            start_btn = self._get_start_button()
+            start_btn.color = (60, 60, 60)
+            start_btn.hover_color = (60, 60, 60)
+            start_btn.text_color = (120, 120, 120)
+            start_btn.draw(frame)
         
         # Footer
-        footer = "Press ESC to exit | Press SPACE or S to start"
+        footer = "Press ESC to exit"
+        if is_registered:
+            footer += " | Press SPACE or S to start"
         foot_size = cv2.getTextSize(footer, font, 0.5, 1)[0]
         foot_x = (self.screen_width - foot_size[0]) // 2
         cv2.putText(frame, footer, (foot_x, self.screen_height - 30), 
                    font, 0.5, config.COLORS['light_gray'], 1)
+        
+        return frame
+    
+    def _render_register_screen(self) -> np.ndarray:
+        """Render the face registration screen with live camera preview"""
+        # Check if camera is available
+        if self.cap is None or not self.cap.isOpened():
+            self._cancel_registration()
+            return np.zeros((self.screen_height, self.screen_width, 3), dtype=np.uint8)
+        
+        ret, frame = self.cap.read()
+        if not ret:
+            self._cancel_registration()
+            return np.zeros((self.screen_height, self.screen_width, 3), dtype=np.uint8)
+        
+        # Flip frame horizontally for mirror effect
+        frame = cv2.flip(frame, 1)
+        
+        # Resize to screen size
+        frame = cv2.resize(frame, (self.screen_width, self.screen_height))
+        
+        # Try to capture a face frame
+        total_needed = config.FACE_CAPTURE_COUNT
+        captured = len(self.registration_frames)
+        
+        if captured < total_needed:
+            # Attempt to capture face
+            success, encoding, msg = self.face_recognizer.capture_face_encoding(frame)
+            print(f"[Registration] Frame {captured+1}/{total_needed}: {msg}")
+            if success:
+                self.registration_frames.append(frame.copy())
+                captured = len(self.registration_frames)
+                self.registration_message = f"Capturing face... {captured} / {total_needed}"
+            else:
+                self.registration_message = msg
+        else:
+            # All frames captured, register the face
+            if not self.registration_success:
+                print("[Registration] Registering face with captured frames...")
+                success, msg = self.face_recognizer.register_face(self.registration_frames)
+                self.registration_success = success
+                self.registration_message = msg
+                print(f"[Registration] {msg}")
+                # Wait briefly to show result, then automatically return to Start screen
+                time.sleep(1.5)
+                self._cancel_registration()
+                return frame
+        
+        # Draw overlay
+        self._draw_panel(frame, 10, 10, 400, 100)
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(frame, "FACE REGISTRATION", (20, 40), font, 0.8, config.COLORS['white'], 2)
+        # Show status in red if error, green if capturing, yellow otherwise
+        if "No face" in self.registration_message or "Multiple" in self.registration_message or "Could not" in self.registration_message:
+            status_color = config.COLORS['red']
+        elif "Capturing" in self.registration_message:
+            status_color = config.COLORS['green']
+        elif "success" in self.registration_message:
+            status_color = config.COLORS['green']
+        else:
+            status_color = config.COLORS['yellow']
+        cv2.putText(frame, self.registration_message, (20, 80), font, 0.6, status_color, 2)
+        
+        # Progress bar
+        if captured > 0 and captured < total_needed:
+            bar_x, bar_y, bar_w, bar_h = 20, 95, 360, 10
+            cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), 
+                         config.COLORS['white'], 1)
+            fill_w = int((captured / total_needed) * bar_w)
+            cv2.rectangle(frame, (bar_x, bar_y), (bar_x + fill_w, bar_y + bar_h), 
+                         config.COLORS['green'], -1)
+        
+        # Draw face guide rectangle
+        guide_size = 300
+        guide_x = (self.screen_width - guide_size) // 2
+        guide_y = (self.screen_height - guide_size) // 2
+        cv2.rectangle(frame, (guide_x, guide_y), (guide_x + guide_size, guide_y + guide_size), 
+                     config.COLORS['cyan'], 2)
+        cv2.putText(frame, "Position face here", (guide_x + 50, guide_y - 10), 
+                   font, 0.6, config.COLORS['cyan'], 2)
+        
+        # Draw cancel button
+        cancel_btn = self._get_cancel_button()
+        cancel_btn.is_hovered = cancel_btn.contains(self.mouse_x, self.mouse_y)
+        cancel_btn.draw(frame)
         
         return frame
     
@@ -366,6 +623,15 @@ class ExamMonitor:
         for behavior_type, behavior in detected_behaviors.items():
             if behavior.detected:
                 self.risk_scorer.add_event(behavior_type)
+        
+        # Face verification (runs every FACE_VERIFY_INTERVAL frames)
+        face_status, face_distance = self.face_recognizer.verify_face(frame)
+        
+        # Add face recognition events to risk scorer
+        if face_status == FaceRecognizer.STATUS_UNAUTHORIZED:
+            self.risk_scorer.add_event('unauthorized_face')
+        elif face_status == FaceRecognizer.STATUS_NO_FACE:
+            self.risk_scorer.add_event('authorized_missing')
         
         # Draw landmarks
         if config.SHOW_LANDMARKS:
@@ -427,7 +693,6 @@ class ExamMonitor:
             ('Gaze Deviation', 'gaze_deviation'),
             ('Multiple Faces', 'multiple_faces'),
             ('No Face', 'no_face'),
-            ('Hands Hidden', 'hand_missing'),
             ('Looking Away', 'looking_away')
         ]
         
@@ -461,10 +726,15 @@ class ExamMonitor:
         cv2.putText(frame, f"FPS: {self.fps}", (w - 180, 110), cv2.FONT_HERSHEY_SIMPLEX, 
                    0.6, config.COLORS['white'], 1)
         
+        # Draw face verification status
+        status_text, status_color = self.face_recognizer.get_status_display()
+        cv2.putText(frame, status_text, (w - 180, 140), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.6, status_color, 2)
+        
         # Draw face count
         face_count = detection_results.get('face_count', 0)
         face_color = config.COLORS['green'] if face_count == 1 else config.COLORS['red']
-        cv2.putText(frame, f"Faces: {face_count}", (w - 180, 140), cv2.FONT_HERSHEY_SIMPLEX, 
+        cv2.putText(frame, f"Faces: {face_count}", (w - 180, 170), cv2.FONT_HERSHEY_SIMPLEX, 
                    0.6, face_color, 1)
         
         # Draw Stop button
@@ -560,11 +830,12 @@ class ExamMonitor:
         event_counts = self.session_results['event_counts']
         y_offset = panel_y + 310
         event_names = {
+            'unauthorized_face': 'Unauthorized Face',
+            'authorized_missing': 'Authorized Missing',
             'multiple_faces': 'Multiple Faces',
             'no_face': 'No Face',
             'head_turn': 'Head Turn',
             'gaze_deviation': 'Gaze Deviation',
-            'hand_missing': 'Hands Hidden',
             'looking_away': 'Looking Away'
         }
         

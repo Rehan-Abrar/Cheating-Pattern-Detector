@@ -29,7 +29,6 @@ class BehaviorAnalyzer:
         # Behavior state tracking (for duration-based detection)
         self.head_turn_start: Optional[float] = None
         self.no_face_start: Optional[float] = None
-        self.hand_missing_start: Optional[float] = None
         self.gaze_deviation_start: Optional[float] = None
         self.multiple_faces_start: Optional[float] = None
         self.looking_away_start: Optional[float] = None
@@ -40,7 +39,6 @@ class BehaviorAnalyzer:
             'gaze_deviation': False,
             'multiple_faces': False,
             'no_face': False,
-            'hand_missing': False,
             'looking_away': False
         }
     
@@ -62,7 +60,6 @@ class BehaviorAnalyzer:
         detected_behaviors['gaze_deviation'] = self._check_gaze_deviation(detection_results, current_time)
         detected_behaviors['multiple_faces'] = self._check_multiple_faces(detection_results, current_time)
         detected_behaviors['no_face'] = self._check_no_face(detection_results, current_time)
-        detected_behaviors['hand_missing'] = self._check_hand_visibility(detection_results, current_time)
         detected_behaviors['looking_away'] = self._check_looking_away(detection_results, current_time)
         
         return detected_behaviors
@@ -181,31 +178,8 @@ class BehaviorAnalyzer:
             self.current_states['no_face'] = False
         
         return DetectedBehavior('no_face', False)
-    
-    def _check_hand_visibility(self, results: Dict, current_time: float) -> DetectedBehavior:
-        """Check if hands are visible in the frame"""
-        hands_visible = results.get('hands_visible', {'left': False, 'right': False})
-        any_hand_visible = hands_visible['left'] or hands_visible['right']
         
-        if not any_hand_visible:
-            if self.hand_missing_start is None:
-                self.hand_missing_start = current_time
-            
-            duration = current_time - self.hand_missing_start
-            self.current_states['hand_missing'] = True
-            
-            if duration >= config.HAND_MISSING_DURATION:
-                self.hand_missing_start = current_time
-                return DetectedBehavior(
-                    'hand_missing', 
-                    True, 
-                    {'left': hands_visible['left'], 'right': hands_visible['right']}
-                )
-        else:
-            self.hand_missing_start = None
-            self.current_states['hand_missing'] = False
-        
-        return DetectedBehavior('hand_missing', False)
+        return DetectedBehavior('no_face', False)
     
     def _check_looking_away(self, results: Dict, current_time: float) -> DetectedBehavior:
         """Combined check for looking away from screen (head + gaze)"""
@@ -248,7 +222,6 @@ class BehaviorAnalyzer:
         """Reset all behavior tracking"""
         self.head_turn_start = None
         self.no_face_start = None
-        self.hand_missing_start = None
         self.gaze_deviation_start = None
         self.multiple_faces_start = None
         self.looking_away_start = None

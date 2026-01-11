@@ -1,0 +1,67 @@
+{
+  "final_score": 48,
+  "risk_level": "medium",
+  "duration_seconds": 38.2895770072937,
+  "duration_formatted": "00:38",
+  "total_events": 4,
+  "event_counts": {
+    "multiple_faces": 0,
+    "no_face": 0,
+    "head_turn": 2,
+    "gaze_deviation": 1,
+    "looking_away": 0,
+    "unauthorized_face": 0,
+    "authorized_missing": 1
+  },
+  "event_log": [
+    {
+      "timestamp": 5.94912314414978,
+      "event_type": "authorized_missing",
+      "risk_increment": 20,
+      "total_score_after": 20
+    },
+    {
+      "timestamp": 6.003278732299805,
+      "event_type": "gaze_deviation",
+      "risk_increment": 8,
+      "total_score_after": 28
+    },
+    {
+      "timestamp": 26.21617555618286,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 38
+    },
+    {
+      "timestamp": 30.386585235595703,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 48
+    }
+  ],
+  "score_timeline": [
+    [
+      0.0,
+      0
+    ],
+    [
+      5.94912314414978,
+      20
+    ],
+    [
+      6.003278732299805,
+      28
+    ],
+    [
+      26.21617555618286,
+      38
+    ],
+    [
+      30.386585235595703,
+      48
+    ]
+  ],
+  "saved_at": "2026-01-11T20:28:48.411829",
+  "ground_truth": "cheating"
+
+}

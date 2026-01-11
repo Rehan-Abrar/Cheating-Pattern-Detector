@@ -15,11 +15,55 @@ With the rapid growth of online education, conducting fair and secure online exa
 - **Head orientation tracking** (yaw, pitch, roll angles)
 - **Eye gaze direction analysis**
 - **Multiple face detection**
-- **Hand visibility monitoring**
 - **Risk score calculation** (0-100%)
 - **Privacy-safe** - No face recognition or identity storage
 
 ---
+
+## 🗂️ Dataset Description
+
+### Dataset Source
+- Self-collected sessions during trial exams.
+
+Each session consists of video recordings of the student performing exam tasks.
+
+Planned/target per-exam recording: 5–60 minutes (to simulate full exam conditions).
+
+Optionally, augmented or simulated datasets may be used for training under varied conditions.
+
+### Dataset Type
+- Video data: Frames processed for landmarks and embeddings (pose/face features).
+
+- Numerical features: Extracted per-session aggregates, including event counts, gaze deviations, head turns, and risk scores, used for model training.
+
+Note: Raw frames are not stored for training unless explicitly required; only extracted features are used.
+
+### Key Features
+- Video-derived features: Face landmarks, iris positions, head yaw/pitch.
+
+- Event-based features: `head_turn`, `gaze_deviation`, `looking_away`, `no_face`, `multiple_faces`, `authorized_missing`, `unauthorized_face`.
+
+- Score-based features: Cumulative risk score, timeline increments, final score.
+
+- Aggregates: Event counts, duration, max/mean/variance of score increments per session — these are used as input features for the supervised model.
+
+### Dataset Size
+- Current dataset: 19 labeled sessions in the repository.
+
+- Each session is short (~11–79 seconds), sampled at 3 fps → ~33–237 frames per session.
+
+- Target dataset: 100+ sessions per class (normal and cheating) for robust supervised learning.
+
+- Planned exam recordings: 5–60 minutes, sampled at 3 fps → ~900–10,800 frames per session.
+
+### Labeling
+- All session labels (normal vs cheating) are human-provided to prevent label leakage and ensure reliable supervised training.
+
+### Privacy Considerations
+- Face embeddings (`faces/authorized.npy`) and session data are sensitive.
+- Consent from participants is required for recording.
+- Store data securely with limited access and follow institutional privacy guidelines.
+
 
 ## 🔧 Installation
 
@@ -55,120 +99,118 @@ python main.py
 ```
 
 ### Controls
-| Key | Action |
-|-----|--------|
-| `Q` / `ESC` | Quit application |
-| `R` | Reset risk score and behavior counts |
-| `L` | Toggle landmark display on/off |
-| `S` | Show session summary in console |
 
----
+# Cheating Pattern Detector
 
-## 📊 Detected Behaviors
+AI-Based Online Exam Monitoring — implementation, training and evaluation
 
-| Behavior | Description | Weight |
-|----------|-------------|--------|
-| **Multiple Faces** | Additional person detected in frame | 25 |
-| **No Face** | Student leaves the camera frame | 20 |
-| **Hand Missing** | Both hands not visible for extended time | 12 |
-| **Head Turn** | Student turns head away from screen (>25°) | 10 |
-| **Looking Away** | Combined head turn + gaze deviation | 10 |
-| **Gaze Deviation** | Eye gaze moves away from screen | 8 |
+This repository implements a real-time exam proctoring prototype that:
+- detects suspicious behaviors (head turns, gaze deviation, missing/unauthorized faces),
+- verifies the enrolled student using 1:1 face recognition (enrollment + verification),
+- saves session summaries for offline analysis and supervised training, and
+- supports training/evaluation of a supervised classifier (Logistic Regression) from labeled sessions.
 
----
+## Contents
+- `main.py` — app entry (OpenCV UI, enrollment, monitoring loop)
+- `pose_detector.py` — MediaPipe-based landmarks, iris & head-angle estimators
+- `face_recognizer.py` — enrollment and verification (dlib/face_recognition)
+- `behavior_analyzer.py` — rules turning landmarks into events
+- `risk_scorer.py` — event weights, cooldowns, session summary builder
+- `train_model.py` — feature extraction and Logistic Regression training
+- `evaluate.py` — model-based evaluation (requires `results/model.pkl`)
+- `plot_evaluation.py` — confusion matrix + metrics bar plot generation
+- `results/` — session JSONs, trained `model.pkl`, evaluation JSONs and plots
+- `faces/` — `authorized.npy` (enrolled face embedding)
+- `requirements.txt` — Python dependencies
 
-## 🏗️ System Architecture
+## Quick status
+- Current dataset included: 19 labeled sessions
+- Current supervised model: Logistic Regression (saved to `results/model.pkl`)
 
+## Installation
+1. Create and activate a virtual environment (Windows PowerShell):
+```powershell
+python -m venv .venv
+& ".\.venv\Scripts\Activate.ps1"
+pip install -r requirements.txt
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Webcam Feed   │────▶│  Pose Detector   │────▶│    Behavior     │
-│   (Input)       │     │  (MediaPipe)     │     │    Analyzer     │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘
-                                                          │
-                        ┌──────────────────┐              │
-                        │   Risk Scorer    │◀─────────────┘
-                        │  (0-100% score)  │
-                        └────────┬─────────┘
-                                 │
-                        ┌────────▼─────────┐
-                        │   Display UI     │
-                        │  (OpenCV Window) │
-                        └──────────────────┘
-```
+2. Notes for Windows: `face_recognition`/`dlib` may require CMake and Visual Studio Build Tools. MediaPipe wheels must expose `mp.solutions` on some Windows Python versions — use the provided `requirements.txt` and follow installation errors.
 
----
-
-## 📁 Project Structure
-
-```
-Cheating Pattern Detector/
-├── main.py              # Main application entry point
-├── pose_detector.py     # MediaPipe-based landmark detection
-├── behavior_analyzer.py # Rule-based behavior analysis
-├── risk_scorer.py       # Risk score calculation
-├── config.py            # Configuration settings
-├── requirements.txt     # Python dependencies
-└── README.md            # This file
+## Running the app
+```powershell
+python main.py
 ```
 
----
+### UI keys
+- `R`: reset score
+- `S`: show session summary in console
+- `Q` / `ESC`: quit
 
-## ⚙️ Configuration
+## Enrollment (1:1 face verification)
+- Press the on-screen/register control (or the key bound in `main.py`) to enter `STATE_REGISTER`.
+- The app collects ~20 face crops, computes `face_recognition` embeddings per capture, averages them, and saves `faces/authorized.npy` (single-vector enrollment).
+- Enrollment should be performed under exam-like lighting and camera position for best results.
 
-Edit `config.py` to customize detection thresholds:
+## Monitoring loop (what happens per frame)
+1. Capture frame (OpenCV)
+2. Run MediaPipe face/pose mesh in `pose_detector.py` to extract landmarks and iris centers
+3. Run `face_recognizer.py` to verify face embedding (authorized/unauthorized/missing)
+4. `behavior_analyzer.py` converts landmark measurements into high-level events (`head_turn`, `gaze_deviation`, `looking_away`, `no_face`, `multiple_faces`, `authorized_missing`, `unauthorized_face`)
+5. `risk_scorer.py` applies per-event weights, cooldowns, caps the risk at 100, and records an event timeline
+6. App overlays debug visuals (landmarks, iris centers, gaze angle) and displays the current risk score
+7. When monitoring stops, `get_session_summary()` is saved to `results/session_YYYYMMDD_HHMMSS.json`
 
-```python
-# Head orientation thresholds
-HEAD_TURN_THRESHOLD = 25      # Degrees
-HEAD_TURN_DURATION = 1.0      # Seconds
+## Behavior detection details
+- Gaze and head orientation: computed from face landmarks and iris centers; thresholds live in `config.py` (`HEAD_TURN_THRESHOLD`, `GAZE_DEVIATION_THRESHOLD`).
+- `looking_away` is a composed event to avoid double counting immediate head/gaze sub-events; scorer cooldowns prevent rapid double-counting.
 
-# Face detection
-NO_FACE_DURATION = 1.5        # Seconds
+## Face recognition
+- Enrollment: average of 20 embeddings to reduce noise; saved to `faces/authorized.npy`.
+- Verification: compute embedding per detected face and compare Euclidean distance against a configured threshold — unauthorized => event weight (configured in `config.py`).
 
-# Hand detection
-HAND_MISSING_DURATION = 2.0   # Seconds
+## Session persistence
+- Each session JSON contains `final_score`, `risk_level`, `duration_seconds`, `total_events`, `event_counts`, `event_log` (timestamped events), `score_timeline`, `saved_at`, and `ground_truth` (if labeled).
 
-# Risk scoring weights
-RISK_WEIGHTS = {
-    'multiple_faces': 25,
-    'no_face': 20,
-    'hand_missing': 12,
-    'head_turn': 10,
-    'gaze_deviation': 8,
-    'looking_away': 10
-}
-```
+## Supervised training (`train_model.py`)
+- Scans `results/` for human-labeled sessions (`ground_truth` ∈ {`cheating`, `normal`}).
+- Extracts per-session features: event counts, `total_events`, `duration_seconds`, `final_score`, `score_max`, `score_mean_increment`, `score_var_increment`.
+- Trains a `LogisticRegression` model (baseline, interpretable coefficients). Model artifact saved as `results/model.pkl` and metadata `results/model_meta.json` (feature order, model type, sample count).
 
----
+## Evaluation (`evaluate.py`)
+- Requires `results/model.pkl` and `results/model_meta.json`.
+- Builds feature vectors in the same order as saved metadata and uses the trained model to predict `normal` vs `cheating` for each labeled session.
+- Computes TP/FP/FN/TN, Precision, Recall, Accuracy, F1 and writes `results/evaluation_YYYYMMDD_HHMMSS.json`.
 
-## 🎯 PEAS Analysis
+## Visuals (`plot_evaluation.py`)
+- Produces `results/confusion_matrix.png` and `results/metrics_bar.png` from the latest evaluation JSON.
 
-| Component | Description |
-|-----------|-------------|
-| **Performance** | Accurate detection of suspicious behavior and reliable risk score |
-| **Environment** | Partially observable, dynamic, real-time online exam environment |
-| **Actuators** | Generate risk score and behavior logs |
-| **Sensors** | Webcam video feed and extracted pose landmarks |
+## Dataset (summary)
+- Current dataset: 19 labeled sessions included in `results/`.
+- Session lengths in repo: short (approx. 11–79 seconds). Sampling rate used by the pipeline: 3 fps — thus existing sessions at 3 fps → roughly 33–237 frames/session.
+- Planned exam recordings (target): 5–60 minutes sampled at 3 fps → ~900–10,800 frames/session.
+- Target dataset size for robust supervised models: 100+ sessions per class (normal and cheating).
 
----
+## Privacy & ethics
+- Enrollment embeddings (`faces/authorized.npy`) and session JSONs are sensitive. Obtain explicit consent before recording.
+- Limit retention, restrict access, and consider encrypting stored embeddings.
+- This system detects observable behaviors — do not infer intent; always include human review for high-stakes decisions.
 
-## 📈 Evaluation Metrics
+## Reproducibility & notes
+- `requirements.txt` contains the Python dependencies used; install into a virtual environment as shown above.
+- Training/evaluation are deterministic if seeds are fixed; `train_model.py` saves metadata including feature order and sample counts.
 
-Since this is a rule-based AI system (not trained on labeled data):
+## Troubleshooting & platform notes
+- If `face_recognition`/`dlib` fails to install on Windows, install CMake and Build Tools for Visual Studio, or use prebuilt wheels.
+- MediaPipe version compatibility: on Windows some pip wheels may not expose `mp.solutions`; use a wheel that matches your Python version.
 
-1. **Rule activation frequency** - How often each rule triggers
-2. **Consistency of risk score** - Score stability across sessions
-3. **Manual verification** - Comparing detected behaviors with observed behavior
+## Next steps (recommended)
+- Collect more labeled sessions and re-run `train_model.py` with stratified cross-validation and hyperparameter tuning.
+- Add a small interactive labeler to confirm `ground_truth` for each session.
+- Add unit tests for feature extraction and evaluator logic.
+- Secure storage for `faces/authorized.npy` if deploying beyond testing.
 
----
-
-## 🔮 Future Extensions
-
-- [ ] Multi-student monitoring
-- [ ] LMS integration
-- [ ] Adaptive threshold learning
-- [ ] Report generation
-- [ ] Audio analysis (voice detection)
+## Contact
+- Project for a 5th semester AI course. For questions, inspect code or open an issue in the repository.
 
 ---
 

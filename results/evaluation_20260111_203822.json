@@ -1,0 +1,129 @@
+{
+  "evaluated_at": "2026-01-11T20:38:22.676940",
+  "threshold": 50.0,
+  "total_sessions": 19,
+  "TP": 11,
+  "FP": 2,
+  "FN": 1,
+  "TN": 5,
+  "precision": 0.8461538461538461,
+  "recall": 0.9166666666666666,
+  "accuracy": 0.8421052631578947,
+  "f1": 0.8799999999999999,
+  "rows": [
+    [
+      "session_20260111_192809.json",
+      "normal",
+      "normal",
+      16
+    ],
+    [
+      "session_20260111_195916.json",
+      "cheating",
+      "cheating",
+      66
+    ],
+    [
+      "session_20260111_200331.json",
+      "cheating",
+      "cheating",
+      68
+    ],
+    [
+      "session_20260111_200410.json",
+      "normal",
+      "normal",
+      0
+    ],
+    [
+      "session_20260111_200441.json",
+      "cheating",
+      "cheating",
+      100
+    ],
+    [
+      "session_20260111_201357.json",
+      "normal",
+      "normal",
+      28
+    ],
+    [
+      "session_20260111_202319.json",
+      "normal",
+      "cheating",
+      56
+    ],
+    [
+      "session_20260111_202420.json",
+      "normal",
+      "normal",
+      30
+    ],
+    [
+      "session_20260111_202459.json",
+      "cheating",
+      "cheating",
+      68
+    ],
+    [
+      "session_20260111_202551.json",
+      "normal",
+      "cheating",
+      50
+    ],
+    [
+      "session_20260111_202638.json",
+      "cheating",
+      "cheating",
+      76
+    ],
+    [
+      "session_20260111_202734.json",
+      "cheating",
+      "cheating",
+      86
+    ],
+    [
+      "session_20260111_202848.json",
+      "cheating",
+      "normal",
+      48
+    ],
+    [
+      "session_20260111_202945.json",
+      "cheating",
+      "cheating",
+      88
+    ],
+    [
+      "session_20260111_203046.json",
+      "cheating",
+      "cheating",
+      100
+    ],
+    [
+      "session_20260111_203129.json",
+      "cheating",
+      "cheating",
+      78
+    ],
+    [
+      "session_20260111_203147.json",
+      "cheating",
+      "cheating",
+      86
+    ],
+    [
+      "session_20260111_203202.json",
+      "normal",
+      "normal",
+      0
+    ],
+    [
+      "session_20260111_203234.json",
+      "cheating",
+      "cheating",
+      88
+    ]
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "final_score": 88,
+  "risk_level": "high",
+  "duration_seconds": 21.545298099517822,
+  "duration_formatted": "00:21",
+  "total_events": 5,
+  "event_counts": {
+    "multiple_faces": 0,
+    "no_face": 0,
+    "head_turn": 0,
+    "gaze_deviation": 1,
+    "looking_away": 0,
+    "unauthorized_face": 0,
+    "authorized_missing": 4
+  },
+  "event_log": [
+    {
+      "timestamp": 1.6780622005462646,
+      "event_type": "authorized_missing",
+      "risk_increment": 20,
+      "total_score_after": 20
+    },
+    {
+      "timestamp": 5.019257068634033,
+      "event_type": "authorized_missing",
+      "risk_increment": 20,
+      "total_score_after": 40
+    },
+    {
+      "timestamp": 7.4298481941223145,
+      "event_type": "gaze_deviation",
+      "risk_increment": 8,
+      "total_score_after": 48
+    },
+    {
+      "timestamp": 8.627476692199707,
+      "event_type": "authorized_missing",
+      "risk_increment": 20,
+      "total_score_after": 68
+    },
+    {
+      "timestamp": 12.040007829666138,
+      "event_type": "authorized_missing",
+      "risk_increment": 20,
+      "total_score_after": 88
+    }
+  ],
+  "score_timeline": [
+    [
+      0.0,
+      0
+    ],
+    [
+      1.6780622005462646,
+      20
+    ],
+    [
+      5.019257068634033,
+      40
+    ],
+    [
+      7.4298481941223145,
+      48
+    ],
+    [
+      8.627476692199707,
+      68
+    ],
+    [
+      12.040007829666138,
+      88
+    ]
+  ],
+  "saved_at": "2026-01-11T20:29:45.283959",
+  "ground_truth": "cheating"
+
+}

@@ -1,0 +1,25 @@
+{
+  "final_score": 0,
+  "risk_level": "low",
+  "duration_seconds": 11.402441501617432,
+  "duration_formatted": "00:11",
+  "total_events": 0,
+  "event_counts": {
+    "multiple_faces": 0,
+    "no_face": 0,
+    "head_turn": 0,
+    "gaze_deviation": 0,
+    "looking_away": 0,
+    "unauthorized_face": 0,
+    "authorized_missing": 0
+  },
+  "event_log": [],
+  "score_timeline": [
+    [
+      0.0,
+      0
+    ]
+  ],
+  "saved_at": "2026-01-11T20:32:02.644518",
+  "ground_truth": "normal"
+}

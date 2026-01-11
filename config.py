@@ -13,9 +13,9 @@ FRAME_HEIGHT = 720
 # =============================================================================
 # HEAD ORIENTATION THRESHOLDS
 # =============================================================================
-HEAD_TURN_THRESHOLD = 25  # Degrees - head turn angle threshold
+HEAD_TURN_THRESHOLD = 15  # Degrees - head turn angle threshold (more strict)
 HEAD_TURN_DURATION = 1.0  # Seconds - duration to trigger suspicious behavior
-GAZE_DEVIATION_THRESHOLD = 20  # Degrees - eye gaze deviation threshold
+GAZE_DEVIATION_THRESHOLD = 5  # Degrees - eye gaze deviation threshold (more strict)
 
 # =============================================================================
 # FACE DETECTION THRESHOLDS
@@ -25,21 +25,16 @@ MULTIPLE_FACES_ALERT = True  # Alert when multiple faces detected
 NO_FACE_DURATION = 1.5  # Seconds - duration of no face to trigger alert
 
 # =============================================================================
-# HAND DETECTION THRESHOLDS
-# =============================================================================
-HAND_VISIBILITY_THRESHOLD = 0.5  # Confidence threshold for hand visibility
-HAND_MISSING_DURATION = 2.0  # Seconds - duration of missing hands to trigger alert
-
-# =============================================================================
 # RISK SCORING WEIGHTS (Cumulative - score only increases)
 # =============================================================================
 RISK_WEIGHTS = {
     'multiple_faces': 25,      # Another face detected
     'no_face': 20,             # No face in frame
-    'hand_missing': 12,        # Hands not visible
     'head_turn': 10,           # Head turn detection
     'gaze_deviation': 8,       # Gaze deviation
-    'looking_away': 10         # Combined head + gaze looking away
+    'looking_away': 10,        # Combined head + gaze looking away
+    'unauthorized_face': 50,   # Different person detected (face recognition)
+    'authorized_missing': 20,  # Authorized person not in frame (face recognition)
 }
 
 # =============================================================================
@@ -81,6 +76,20 @@ RISK_LEVELS = {
 }
 
 # =============================================================================
+# FACE RECOGNITION SETTINGS
+# =============================================================================
+FACE_MATCH_THRESHOLD = 0.55       # Stricter than default 0.6 for exam security
+FACE_VERIFY_INTERVAL = 10         # Verify every N frames (~3 times/sec at 30fps)
+FACE_CAPTURE_COUNT = 20           # Number of frames to capture during registration
+FACE_MIN_SAMPLES = 10             # Minimum valid samples needed for registration
+
+# Face recognition risk weights (added to existing RISK_WEIGHTS)
+FACE_RISK_WEIGHTS = {
+    'unauthorized_face': 50,      # Different person detected
+    'authorized_missing': 20,     # Authorized person not in frame
+}
+
+# =============================================================================
 # UI SETTINGS
 # =============================================================================
 BUTTON_COLOR = (0, 120, 0)        # Green button
@@ -88,3 +97,5 @@ BUTTON_HOVER_COLOR = (0, 180, 0)  # Lighter green on hover
 BUTTON_TEXT_COLOR = (255, 255, 255)
 STOP_BUTTON_COLOR = (0, 0, 180)   # Red button
 STOP_BUTTON_HOVER = (0, 0, 220)   # Lighter red on hover
+REGISTER_BUTTON_COLOR = (180, 100, 0)   # Orange button
+REGISTER_BUTTON_HOVER = (220, 140, 0)   # Lighter orange on hover

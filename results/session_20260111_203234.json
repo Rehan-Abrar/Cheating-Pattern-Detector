@@ -1,0 +1,106 @@
+{
+  "final_score": 88,
+  "risk_level": "high",
+  "duration_seconds": 28.669400691986084,
+  "duration_formatted": "00:28",
+  "total_events": 8,
+  "event_counts": {
+    "multiple_faces": 0,
+    "no_face": 0,
+    "head_turn": 5,
+    "gaze_deviation": 1,
+    "looking_away": 1,
+    "unauthorized_face": 0,
+    "authorized_missing": 1
+  },
+  "event_log": [
+    {
+      "timestamp": 3.2515647411346436,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 10
+    },
+    {
+      "timestamp": 7.317188501358032,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 20
+    },
+    {
+      "timestamp": 10.003113985061646,
+      "event_type": "gaze_deviation",
+      "risk_increment": 8,
+      "total_score_after": 28
+    },
+    {
+      "timestamp": 10.003113985061646,
+      "event_type": "looking_away",
+      "risk_increment": 10,
+      "total_score_after": 38
+    },
+    {
+      "timestamp": 14.060024738311768,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 48
+    },
+    {
+      "timestamp": 18.15463614463806,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 58
+    },
+    {
+      "timestamp": 22.267462730407715,
+      "event_type": "head_turn",
+      "risk_increment": 10,
+      "total_score_after": 68
+    },
+    {
+      "timestamp": 23.428284883499146,
+      "event_type": "authorized_missing",
+      "risk_increment": 20,
+      "total_score_after": 88
+    }
+  ],
+  "score_timeline": [
+    [
+      0.0,
+      0
+    ],
+    [
+      3.2515647411346436,
+      10
+    ],
+    [
+      7.317188501358032,
+      20
+    ],
+    [
+      10.003113985061646,
+      28
+    ],
+    [
+      10.003113985061646,
+      38
+    ],
+    [
+      14.060024738311768,
+      48
+    ],
+    [
+      18.15463614463806,
+      58
+    ],
+    [
+      22.267462730407715,
+      68
+    ],
+    [
+      23.428284883499146,
+      88
+    ]
+  ],
+  "saved_at": "2026-01-11T20:32:34.548388",
+  "ground_truth": "cheating"
+}

@@ -1,0 +1,19 @@
+{
+  "feature_names": [
+    "authorized_missing",
+    "gaze_deviation",
+    "head_turn",
+    "looking_away",
+    "multiple_faces",
+    "no_face",
+    "unauthorized_face",
+    "total_events",
+    "duration_seconds",
+    "final_score",
+    "score_max",
+    "score_mean_increment",
+    "score_var_increment"
+  ],
+  "model_type": "LogisticRegression",
+  "n_samples": 19
+}

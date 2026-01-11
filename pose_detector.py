@@ -1,6 +1,6 @@
 """
 Pose Detector Module
-Uses MediaPipe for real-time pose, face, and hand landmark detection
+Uses MediaPipe for real-time pose and face landmark detection
 """
 
 import cv2
@@ -12,7 +12,7 @@ import config
 
 class PoseDetector:
     """
-    Detects body pose, face mesh, and hands using MediaPipe
+    Detects body pose and face mesh using MediaPipe
     Extracts key landmarks for behavior analysis
     """
     
@@ -20,7 +20,6 @@ class PoseDetector:
         # Initialize MediaPipe solutions
         self.mp_face_mesh = mp.solutions.face_mesh
         self.mp_pose = mp.solutions.pose
-        self.mp_hands = mp.solutions.hands
         self.mp_face_detection = mp.solutions.face_detection
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_drawing_styles = mp.solutions.drawing_styles
@@ -38,11 +37,6 @@ class PoseDetector:
             min_tracking_confidence=0.5
         )
         
-        self.hands = self.mp_hands.Hands(
-            max_num_hands=2,
-            min_detection_confidence=config.HAND_VISIBILITY_THRESHOLD,
-            min_tracking_confidence=0.5
-        )
         
         self.face_detection = self.mp_face_detection.FaceDetection(
             min_detection_confidence=config.MIN_FACE_DETECTION_CONFIDENCE
@@ -81,12 +75,10 @@ class PoseDetector:
         results = {
             'face_mesh': None,
             'pose': None,
-            'hands': None,
             'face_detection': None,
             'face_count': 0,
             'head_angles': None,
             'gaze_direction': None,
-            'hands_visible': {'left': False, 'right': False}
         }
         
         # Process face mesh
@@ -107,17 +99,7 @@ class PoseDetector:
         if pose_results.pose_landmarks:
             results['pose'] = pose_results.pose_landmarks
         
-        # Process hands
-        hands_results = self.hands.process(rgb_frame)
-        if hands_results.multi_hand_landmarks:
-            results['hands'] = hands_results.multi_hand_landmarks
-            for idx, hand_landmarks in enumerate(hands_results.multi_hand_landmarks):
-                if idx < len(hands_results.multi_handedness):
-                    handedness = hands_results.multi_handedness[idx].classification[0].label
-                    if handedness == 'Left':
-                        results['hands_visible']['right'] = True  # Mirrored
-                    else:
-                        results['hands_visible']['left'] = True  # Mirrored
+        # Hands processing removed per user request
         
         # Count faces
         face_detection_results = self.face_detection.process(rgb_frame)
@@ -247,6 +229,7 @@ class PoseDetector:
             Frame with landmarks drawn
         """
         annotated_frame = frame.copy()
+        h, w = frame.shape[:2]
         
         if not config.SHOW_LANDMARKS:
             return annotated_frame
@@ -269,6 +252,38 @@ class PoseDetector:
                 landmark_drawing_spec=None,
                 connection_drawing_spec=self.mp_drawing_styles.get_default_face_mesh_iris_connections_style()
             )
+            # Debug: draw computed iris centers and eye corners for troubleshooting
+            try:
+                lm = results['face_mesh'].landmark
+                left_iris_pts = [lm[i] for i in self.LEFT_IRIS]
+                right_iris_pts = [lm[i] for i in self.RIGHT_IRIS]
+                left_center = np.mean([[int(p.x * w), int(p.y * h)] for p in left_iris_pts], axis=0).astype(int)
+                right_center = np.mean([[int(p.x * w), int(p.y * h)] for p in right_iris_pts], axis=0).astype(int)
+                cv2.circle(annotated_frame, tuple(left_center), 4, (0, 255, 255), -1)
+                cv2.circle(annotated_frame, tuple(right_center), 4, (0, 255, 255), -1)
+
+                # draw inner/outer eye corners used for gaze calculation
+                left_inner = lm[self.LEFT_EYE_INNER]
+                left_outer = lm[self.LEFT_EYE_OUTER]
+                right_inner = lm[self.RIGHT_EYE_INNER]
+                right_outer = lm[self.RIGHT_EYE_OUTER]
+                li = (int(left_inner.x * w), int(left_inner.y * h))
+                lo = (int(left_outer.x * w), int(left_outer.y * h))
+                ri = (int(right_inner.x * w), int(right_inner.y * h))
+                ro = (int(right_outer.x * w), int(right_outer.y * h))
+                cv2.circle(annotated_frame, li, 3, (255, 0, 255), -1)
+                cv2.circle(annotated_frame, lo, 3, (255, 0, 255), -1)
+                cv2.circle(annotated_frame, ri, 3, (255, 0, 255), -1)
+                cv2.circle(annotated_frame, ro, 3, (255, 0, 255), -1)
+
+                # overlay gaze angle if available
+                gaze = results.get('gaze_direction')
+                if gaze:
+                    angle = gaze.get('angle', 0.0)
+                    cv2.putText(annotated_frame, f"Gaze: {angle:+.1f}deg", (10, h - 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            except Exception:
+                pass
         
         # Draw pose landmarks
         if results['pose']:
@@ -279,16 +294,7 @@ class PoseDetector:
                 landmark_drawing_spec=self.mp_drawing_styles.get_default_pose_landmarks_style()
             )
         
-        # Draw hand landmarks
-        if results['hands']:
-            for hand_landmarks in results['hands']:
-                self.mp_drawing.draw_landmarks(
-                    annotated_frame,
-                    hand_landmarks,
-                    self.mp_hands.HAND_CONNECTIONS,
-                    self.mp_drawing_styles.get_default_hand_landmarks_style(),
-                    self.mp_drawing_styles.get_default_hand_connections_style()
-                )
+        # Hand drawing removed per user request
         
         return annotated_frame
     
@@ -296,5 +302,5 @@ class PoseDetector:
         """Release MediaPipe resources"""
         self.face_mesh.close()
         self.pose.close()
-        self.hands.close()
+        # hands closed/removed
         self.face_detection.close()
